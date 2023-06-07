@@ -47,3 +47,12 @@ class NeuralNetwork:
             self.w[i - 1] -= learning_rate * np.atleast_2d(d_total_error_over_d_net * d_out_over_d_net).T @ np.atleast_2d(d_net_over_d_w)
             self.b[i - 1] -= learning_rate * d_total_error_over_d_net * d_out_over_d_net * d_net_over_d_b
 
+    def save(self, filename):
+        np.savez(filename, w=self.w, b=self.b)
+
+    def load(self, filename):
+        data = np.load(filename)
+        self.w = data['w']
+        self.b = data['b']
+        self.layers = len(self.w) + 1
+        self.out = [np.zeros(self.w[i].shape[1]) for i in range(self.layers - 1)]
