@@ -1,80 +1,59 @@
-# train model to play mlynek
-from random import random
-
-from game import Game
 from neural_network import NeuralNetwork
 from neural_network_utils import *
+import random
 
-# make two models play against each other
-# next generation is made from statistics of the previous generation
+model = NeuralNetwork([28, 100, 24 * 24 + 24], sigmoid, sigmoid_derivative)
 
-# data is list of tuples (board, winrate)
-
-EPOCHS = 10
+EPOCHS = 3
 LEARNING_RATE = 0.1
-GAMES_IN_GENERATION = 1000
-GENERATIONS = 30
-model = [NeuralNetwork([26, 15, 1], sigmoid, sigmoid_derivative) for _ in range(2)]
+
+LIST_OF_POSITIONS = [
+    "e4", "f4", "g4",
+    "e3", "f2", "g1",
+    "d3", "d2", "d1",
+    "c3", "b2", "a1",
+    "c4", "b4", "a4",
+    "c5", "b6", "a7",
+    "d5", "d6", "d7",
+    "e5", "f6", "g7",
+]
+
+POS_TO_INDEX = {pos: i for i, pos in enumerate(LIST_OF_POSITIONS)}
 
 
-def pick_best_configuration(model: NeuralNetwork, data):
-    #pick best configuration with random coefficient
-    sum = 0
-    for data_line in data:
-        sum += model.predict(np.array(data_line))[0]
-    random_number = random() * sum
-    for data_line in data:
-        random_number -= model.predict(np.array(data_line))[0]
-        if random_number <= 0:
-            return data_line
+def move_to_array(move):
+    res = [0] * (24 * 24 + 24)
+    if len(move) == 2:
+        res[POS_TO_INDEX[move[0:2]] * (24 + 1)] = 1
+    elif len(move) == 4:
+        res[POS_TO_INDEX[move[0:2]] * 24 + POS_TO_INDEX[move[2:4]]] = 1
+    else:
+        res[POS_TO_INDEX[move[0:2]] * 24 + POS_TO_INDEX[move[2:4]]] = 1
+        res[24 * 24 + POS_TO_INDEX[move[4:6]]] = 1
+    return res
 
 
-for gen in range(GENERATIONS):
-    data = []
-    with open('positions.data') as f:
-        lines = f.readlines()
-        for line in lines:
-            data.append([float(x) for x in line.split(',')])
+data = []
+with open('dataset.data') as f:
+    lines = f.readlines()
+    for line in lines:
+        x, y = line.strip().split('-')
+        data.append((list(map(int, x.replace("O", "0").replace("M", "1").replace("E", "2"))), move_to_array(y)))
 
-    for i in range(2):
-        for _ in range(EPOCHS):
-            for data_line in data:
-                model[i].fit(np.array(data_line[:-1]), np.array([data_line[-1]]), LEARNING_RATE)
+random.shuffle(data)
+data = data[:10000]
+train_data, test_data = data[:int(len(data) * 0.8)], data[int(len(data) * 0.8):]
 
-    new_data = {}
-    for game_num in range(GAMES_IN_GENERATION):
-        print(f'Generation {gen}, game {game_num}')
-        game = Game()
-        turn = 1
-        #collect data about winrate of each configuration
-        models_configurations = [[], []]
-        while not game.check_win() and not game.check_tie():
-            # print(game.get_configuration())
-            configurations = game.get_all_possible_configurations()
-            if turn == 2:
-                for i in range(len(configurations)):
-                    configurations[i] = Game.swap_players_in_configuration(configurations[i])
-            best_conf = pick_best_configuration(model[turn - 1], configurations)
-            models_configurations[turn - 1].append(best_conf)
-            game.load_configuration(best_conf)
-            game.end_turn()
-            turn = 3 - turn
-        if game.check_win():
-            print(f'Player {game.check_win()} won')
-            winner = game.check_win()
-            for conf in models_configurations[winner - 1]:
-                if tuple(conf) in new_data:
-                    new_data[tuple(conf)] += 1
-                else:
-                    new_data[tuple(conf)] = 1
-        else:
-            for conf in models_configurations[0]:
-                if tuple(conf) in new_data:
-                    new_data[tuple(conf)] += 0.5
-                else:
-                    new_data[tuple(conf)] = 0.5
-    #rewrite data
-    with open('positions.data', 'w') as f:
-        for key in new_data:
-            f.write(','.join([str(x) for x in key]) + ',' + str(new_data[key]) + '\n')
-    print(f'Generation {gen} done')
+for _ in range(EPOCHS):
+    print(_)
+    for data_line in train_data:
+        model.fit(np.array(data_line[0]), np.array(data_line[1]), LEARNING_RATE)
+
+accuracy = 0
+for data_line in test_data:
+    result = model.predict(np.array(data_line[0]))
+    accuracy += np.argmax(result[:24 * 24]) == np.argmax(data_line[1][:24 * 24])
+    if max(data_line[1][24 * 24:]) > 0:
+        accuracy += np.argmax(result[24 * 24:]) == np.argmax(data_line[1][24 * 24:])
+model.save("model")
+print(f'Accuracy: {accuracy / len(test_data)}')
