@@ -1,6 +1,6 @@
 import pygame
 
-WIDTH = 352*3//2
+WIDTH = 352*3//2 + 8
 HEIGHT = 352
 BOARD_WIDTH = 456
 BOARD_HEIGHT = 352
@@ -46,3 +46,17 @@ REMAINING_CHIPS_POSITIONS = [
     [(_REMAINING_X[0], _REMAINING_LAYERS[i]) for i in range(0, 9)],
     [(_REMAINING_X[1], _REMAINING_LAYERS[i]) for i in range(0, 9)],
 ]
+
+BUTTONS_POSITIONS = [
+    None,
+    (-248, 0),
+    (248, 0),
+]
+
+BUTTON_SPRITE_POS = [
+    None,
+    [(32, 0), (96, 0)],
+    [(0, 0), (64, 0)],
+]
+
+BUTTON_RADIUS = 16

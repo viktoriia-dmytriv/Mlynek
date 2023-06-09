@@ -4,6 +4,7 @@ import numpy as np
 import pygame
 
 import consts
+from button_sprite import ButtonSprite
 from chip_sprite import ChipSprite
 from game import Game
 import minimax
@@ -22,6 +23,7 @@ game: Game = Game()
 chips_positions = pygame.sprite.Group()
 remaining_chips = pygame.sprite.Group()
 chips = pygame.sprite.Group()
+buttons = pygame.sprite.Group()
 
 
 def refill_chips_positions():
@@ -43,7 +45,7 @@ def refill_remaining_chips():
         chip.kill()
     for i in range(1, 3):
         for j in range(0, 9):
-            if i == 1 and game.chips_count[i] > 8-j or i == 2 and game.chips_count[i] > j:
+            if i == 1 and game.chips_count[i] > 8 - j or i == 2 and game.chips_count[i] > j:
                 remaining_chips.add(ChipSprite(i, (consts.WIDTH / 2 + consts.REMAINING_CHIPS_POSITIONS[i][j][0],
                                                    consts.HEIGHT / 2 + consts.REMAINING_CHIPS_POSITIONS[i][j][1]),
                                                consts.CHIP_RADIUS))
@@ -62,22 +64,6 @@ def refill_chips():
     all_sprites.add(chips)
 
 
-def init():
-    global board, all_sprites, screen, chips_positions, game, chips
-    screen = pygame.Surface((consts.WIDTH, consts.HEIGHT))
-    board_image = pygame.image.load("resources\\board.png")
-    board_image = pygame.transform.scale(board_image, (consts.BOARD_WIDTH, consts.BOARD_HEIGHT))
-    board = SimpleSprite(board_image, (consts.WIDTH / 2, consts.HEIGHT / 2))
-    all_sprites = pygame.sprite.Group()
-    all_sprites.add(board)
-    refill_chips_positions()
-    refill_remaining_chips()
-    refill_chips()
-    game = Game()
-    game.subscribe_on_change(refill_chips)
-    game.subscribe_on_change(refill_remaining_chips)
-
-
 def pos_on_window_to_pos_on_screen(pos, window):
     width = min(consts.WIDTH / consts.HEIGHT * window.get_height(), window.get_width())
     height = min(consts.HEIGHT / consts.WIDTH * window.get_width(), window.get_height())
@@ -93,7 +79,6 @@ def draw_borders(mouse_pos):
                                    chips_positions.sprites()[i * 3 + j].radius, 3)
 
 
-init()
 dragging = False
 dragging_chip = None
 dragging_chip_pos = None
@@ -101,6 +86,49 @@ is_pressed = False
 model = None
 model_turns = []
 
+
+def refill_buttons():
+    global buttons, model_turns
+    for button in buttons:
+        button.kill()
+    for i in range(1, 3):
+        buttons.add(ButtonSprite(i, not (i in model_turns), (consts.WIDTH / 2 + consts.BUTTONS_POSITIONS[i][0],
+                                                         consts.HEIGHT / 2 + consts.BUTTONS_POSITIONS[i][1]),
+                                 consts.BUTTON_RADIUS))
+    all_sprites.add(buttons)
+
+
+def on_button_click(mouse_pos):
+    global is_pressed, buttons, model_turns
+    for button in buttons:
+        if pygame.mouse.get_pressed()[0] and button.rect.collidepoint(mouse_pos) and not is_pressed:
+            is_pressed = True
+            if button.is_player:
+                model_turns.append(button.player)
+            else:
+                model_turns.remove(button.player)
+            button.is_player = not button.is_player
+            refill_buttons()
+
+
+def init():
+    global board, all_sprites, screen, chips_positions, game, chips
+    screen = pygame.Surface((consts.WIDTH, consts.HEIGHT))
+    board_image = pygame.image.load("resources\\board.png")
+    board_image = pygame.transform.scale(board_image, (consts.BOARD_WIDTH, consts.BOARD_HEIGHT))
+    board = SimpleSprite(board_image, (consts.WIDTH / 2, consts.HEIGHT / 2))
+    all_sprites = pygame.sprite.Group()
+    all_sprites.add(board)
+    refill_chips_positions()
+    refill_remaining_chips()
+    refill_chips()
+    refill_buttons()
+    game = Game()
+    game.subscribe_on_change(refill_chips)
+    game.subscribe_on_change(refill_remaining_chips)
+
+
+init()
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -118,6 +146,7 @@ while True:
     mouse_pos = pygame.mouse.get_pos()
     mouse_pos = pos_on_window_to_pos_on_screen(mouse_pos, window)
     draw_borders(mouse_pos)
+    on_button_click(mouse_pos)
 
     if game.last_turn is not None:
         if isinstance(game.last_turn[0], tuple):
@@ -134,6 +163,7 @@ while True:
         pygame.draw.circle(screen, consts.RED,
                            chips_positions.sprites()[game.last_removed[0] * 3 + game.last_removed[1]].rect.center,
                            chips_positions.sprites()[game.last_removed[0] * 3 + game.last_removed[1]].radius, 3)
+
 
     if game.turn in model_turns:
         minimax.was_in = 0
