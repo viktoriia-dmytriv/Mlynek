@@ -11,6 +11,3 @@ class RoundSprite(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = pos
         self.radius = radius
-
-    def update(self):
-        pass

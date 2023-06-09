@@ -22,6 +22,7 @@ class Game:
         self.last_removed = None
         self.tie = False
         self.end = False
+        self.on_change_subscribers = []
 
     def copy(self):
         game = Game()
@@ -38,6 +39,13 @@ class Game:
         game.tie = self.tie
         game.end = self.end
         return game
+
+    def subscribe_on_change(self, function):
+        self.on_change_subscribers.append(function)
+
+    def notify_on_change(self):
+        for function in self.on_change_subscribers:
+            function()
 
     def chips_on_board(self, color):
         count = 0
@@ -101,16 +109,18 @@ class Game:
         self.chips_count[color] -= 1
         self.last_turn = pos
         self.last_removed = None
+        res = self.check_line(color, pos)
         if self.check_line(color, pos):
             self.turns_without_mill = 0
-            return True
-        return False
+        self.notify_on_change()
+        return res
 
     def remove_chip(self, color, pos):
         if not self.can_remove(color, pos):
             raise Exception("Can't remove chip")
         self.chips[pos[0]][pos[1]] = 0
         self.last_removed = pos
+        self.notify_on_change()
 
     def move_chip(self, color, pos1, pos2):
         if not self.can_move(color, pos1, pos2):
@@ -119,9 +129,11 @@ class Game:
         self.chips[pos2[0]][pos2[1]] = color
         self.last_turn = (pos1, pos2)
         self.last_removed = None
+        res = self.check_line(color, pos2)
         if self.check_line(color, pos2):
             self.turns_without_mill = 0
-            return True
+        self.notify_on_change()
+        return res
 
     def end_turn(self):
         self.turn = 3 - self.turn
